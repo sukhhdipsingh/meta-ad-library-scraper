@@ -1,0 +1,19 @@
+{
+  "actorSpecification": 1,
+  "name": "meta-ad-library-scraper",
+  "title": "Facebook Ad Library Scraper — Meta Ad Library API",
+  "description": "Track what your competitors are advertising on Facebook and Instagram. Scrapes Meta's public Ad Library into clean JSON — ad copy, every creative image and video, CTA, destination URL and run dates — with no Meta API token and no login. Scheduled runs report only what is new or changed, and bill you for that alone.",
+  "version": "1.0",
+  "buildTag": "latest",
+  "meta": {
+    "templateId": "js-empty"
+  },
+  "input": "./input_schema.json",
+  "output": "./output_schema.json",
+  "storages": {
+    "dataset": "./dataset_schema.json"
+  },
+  "dockerfile": "../Dockerfile",
+  "readme": "../README.md",
+  "changelog": "../CHANGELOG.md"
+}

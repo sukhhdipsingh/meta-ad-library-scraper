@@ -1,0 +1,111 @@
+{
+  "actorSpecification": 1,
+  "fields": {},
+  "views": {
+    "overview": {
+      "title": "Ads",
+      "description": "One row per unique ad, newest creatives first.",
+      "transformation": {
+        "fields": [
+          "pageName",
+          "title",
+          "body",
+          "ctaText",
+          "linkUrl",
+          "isActive",
+          "startDate",
+          "endDate",
+          "totalActiveDays",
+          "platforms",
+          "mediaCount",
+          "adLibraryUrl",
+          "id"
+        ]
+      },
+      "display": {
+        "component": "table",
+        "properties": {
+          "pageName": { "label": "Advertiser", "format": "text" },
+          "title": { "label": "Headline", "format": "text" },
+          "body": { "label": "Ad copy", "format": "text" },
+          "ctaText": { "label": "CTA", "format": "text" },
+          "linkUrl": { "label": "Destination", "format": "link" },
+          "isActive": { "label": "Running", "format": "boolean" },
+          "startDate": { "label": "Started", "format": "text" },
+          "endDate": { "label": "Ended", "format": "text" },
+          "totalActiveDays": { "label": "Days live", "format": "number" },
+          "platforms": { "label": "Platforms", "format": "array" },
+          "mediaCount": { "label": "Creatives", "format": "number" },
+          "adLibraryUrl": { "label": "Ad Library", "format": "link" },
+          "id": { "label": "Ad ID", "format": "text" }
+        }
+      }
+    },
+    "changes": {
+      "title": "Changes",
+      "description": "What a scheduled run found new or different. Populated when monitor mode is on.",
+      "transformation": {
+        "fields": [
+          "status",
+          "changedFields",
+          "pageName",
+          "title",
+          "body",
+          "linkUrl",
+          "firstSeenAt",
+          "lastSeenAt",
+          "adLibraryUrl",
+          "id"
+        ]
+      },
+      "display": {
+        "component": "table",
+        "properties": {
+          "status": { "label": "Status", "format": "text" },
+          "changedFields": { "label": "Changed", "format": "array" },
+          "pageName": { "label": "Advertiser", "format": "text" },
+          "title": { "label": "Headline", "format": "text" },
+          "body": { "label": "Ad copy", "format": "text" },
+          "linkUrl": { "label": "Destination", "format": "link" },
+          "firstSeenAt": { "label": "First seen", "format": "date" },
+          "lastSeenAt": { "label": "Last seen", "format": "date" },
+          "adLibraryUrl": { "label": "Ad Library", "format": "link" },
+          "id": { "label": "Ad ID", "format": "text" }
+        }
+      }
+    },
+    "transparency": {
+      "title": "Spend & reach",
+      "description": "Funding data. Meta publishes this for political and issue ads everywhere, and for all ads targeting the EU.",
+      "transformation": {
+        "fields": [
+          "pageName",
+          "byline",
+          "isPolitical",
+          "spend",
+          "impressions",
+          "impressionsIndex",
+          "reachEstimate",
+          "euTotalReach",
+          "countries",
+          "adLibraryUrl"
+        ]
+      },
+      "display": {
+        "component": "table",
+        "properties": {
+          "pageName": { "label": "Advertiser", "format": "text" },
+          "byline": { "label": "Paid for by", "format": "text" },
+          "isPolitical": { "label": "Political", "format": "boolean" },
+          "spend": { "label": "Spend", "format": "object" },
+          "impressions": { "label": "Impressions", "format": "object" },
+          "impressionsIndex": { "label": "Impr. bucket", "format": "number" },
+          "reachEstimate": { "label": "Reach", "format": "number" },
+          "euTotalReach": { "label": "EU reach", "format": "number" },
+          "countries": { "label": "Countries", "format": "array" },
+          "adLibraryUrl": { "label": "Ad Library", "format": "link" }
+        }
+      }
+    }
+  }
+}

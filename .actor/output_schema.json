@@ -1,0 +1,21 @@
+{
+  "actorOutputSchemaVersion": 1,
+  "title": "Meta Ad Library results",
+  "properties": {
+    "ads": {
+      "type": "string",
+      "title": "Ads",
+      "template": "{{links.apiDefaultDatasetUrl}}/items"
+    },
+    "summary": {
+      "type": "string",
+      "title": "Run summary",
+      "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/SUMMARY"
+    },
+    "runStatus": {
+      "type": "string",
+      "title": "Per-query status",
+      "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/RUN-STATUS"
+    }
+  }
+}

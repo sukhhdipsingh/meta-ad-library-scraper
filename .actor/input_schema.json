@@ -1,0 +1,268 @@
+{
+  "title": "Meta Ad Library Scraper & Change Tracker",
+  "description": "Give it what to search, a spend cap, and (for scheduled runs) a monitor id. Everything else has a sane default.",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "searchTerms": {
+      "title": "Search terms",
+      "type": "array",
+      "description": "Keywords to search the Ad Library for, e.g. \"protein powder\". One query per term. Use this OR pageIds OR adLibraryUrls — at least one is required.",
+      "editor": "stringList",
+      "prefill": [
+        "protein powder"
+      ],
+      "sectionCaption": "What to scrape"
+    },
+    "pageIds": {
+      "title": "Facebook Page IDs",
+      "type": "array",
+      "description": "Numeric Page IDs to pull every ad for — the way to track a specific competitor. Find the ID in the Ad Library URL as view_all_page_id=...",
+      "editor": "stringList"
+    },
+    "advertiserDomains": {
+      "title": "Advertiser domains (finds the right Page)",
+      "type": "array",
+      "description": "Give a website, e.g. nike.com, and get that brand's ads without the same-name impostors. Searching a brand by name returns every unrelated Page sharing it; this searches the name and then keeps only ads whose destination is that domain. Subdomains included.",
+      "editor": "stringList"
+    },
+    "adLibraryUrls": {
+      "title": "Ad Library URLs",
+      "type": "array",
+      "description": "Paste Ad Library URLs straight from the browser. Filters in the URL (country, active status, media type, page) are read and applied.",
+      "editor": "stringList"
+    },
+    "countries": {
+      "title": "Countries",
+      "type": "array",
+      "description": "ISO-3166 alpha-2 codes (US, DE, IT), or ALL for every country. Note: outside the EU only political and issue ads carry spend and impression figures — see the README FAQ.",
+      "editor": "stringList",
+      "default": [
+        "ALL"
+      ],
+      "prefill": [
+        "US"
+      ]
+    },
+    "activeStatus": {
+      "title": "Active status",
+      "type": "string",
+      "description": "Only ads currently running, only ones that stopped, or both.",
+      "editor": "select",
+      "enum": [
+        "active",
+        "inactive",
+        "all"
+      ],
+      "enumTitles": [
+        "Active only",
+        "Inactive only",
+        "Active and inactive"
+      ],
+      "default": "active"
+    },
+    "adType": {
+      "title": "Ad type",
+      "type": "string",
+      "description": "All ads, or only political and issue ads (the ones with spend, impressions and funding data).",
+      "editor": "select",
+      "enum": [
+        "all",
+        "political"
+      ],
+      "enumTitles": [
+        "All ads",
+        "Political and issue ads only"
+      ],
+      "default": "all"
+    },
+    "mediaType": {
+      "title": "Media type",
+      "type": "string",
+      "editor": "select",
+      "enum": [
+        "all",
+        "image",
+        "video",
+        "meme"
+      ],
+      "enumTitles": [
+        "All",
+        "Images",
+        "Videos",
+        "Memes"
+      ],
+      "default": "all",
+      "description": "Keep only ads using this media type. Meta applies this server-side, so it also reduces how much is fetched."
+    },
+    "maxAds": {
+      "title": "Max ads (spend cap)",
+      "type": "integer",
+      "description": "Hard ceiling on billable ads for this run. The run stops cleanly at this number and says so in the status message — it never fails. This is your spend control: at $0.60 per 1,000 ads, 1,000 ads costs $0.60.",
+      "default": 1000,
+      "minimum": 1,
+      "maximum": 200000,
+      "sectionCaption": "Spend controls",
+      "prefill": 200
+    },
+    "maxCostUsd": {
+      "title": "Max cost (USD)",
+      "type": "integer",
+      "description": "Optional second ceiling, in dollars. Whichever limit is reached first stops the run. Leave empty to rely on Max ads alone.",
+      "minimum": 1,
+      "unit": "USD"
+    },
+    "maxPagesPerQuery": {
+      "title": "Max pages per query",
+      "type": "integer",
+      "description": "Safety valve against a query that paginates forever. 10 ads per page.",
+      "default": 200,
+      "minimum": 1,
+      "maximum": 5000
+    },
+    "monitorMode": {
+      "title": "Monitor mode",
+      "type": "string",
+      "description": "For scheduled runs. 'Annotate' returns every ad tagged new/changed/unchanged. 'Changes only' returns just what is new or changed — and you are only billed for those. Unchanged and removed ads are always free.",
+      "editor": "select",
+      "enum": [
+        "off",
+        "annotate",
+        "changes-only"
+      ],
+      "enumTitles": [
+        "Off",
+        "Annotate every ad",
+        "Changes only (cheapest)"
+      ],
+      "default": "off",
+      "sectionCaption": "Change tracking"
+    },
+    "monitorId": {
+      "title": "Monitor ID",
+      "type": "string",
+      "description": "Names the memory this schedule diffs against. Use a different ID per schedule so two schedules never diff each other's ads.",
+      "editor": "textfield",
+      "default": "default"
+    },
+    "emitRemoved": {
+      "title": "Report removed ads",
+      "type": "boolean",
+      "description": "Emit a free record when an ad that was running has stopped. Only queries that actually succeeded can report removals, so a failed run never fakes a wave of removals.",
+      "default": true
+    },
+    "persistMedia": {
+      "title": "Save media to key-value store",
+      "type": "boolean",
+      "description": "Meta's CDN links expire within days. Turn this on to download each image and video into this run's key-value store and rewrite the URLs to permanent ones. Costs extra bandwidth; off by default.",
+      "default": false,
+      "sectionCaption": "Output"
+    },
+    "includeCards": {
+      "title": "Include carousel cards",
+      "type": "boolean",
+      "description": "Keep the per-card breakdown of carousel ads. Media from cards is always collected either way.",
+      "default": true
+    },
+    "publisherPlatforms": {
+      "title": "Platforms",
+      "type": "array",
+      "description": "Keep only ads shown on these platforms: FACEBOOK, INSTAGRAM, MESSENGER, AUDIENCE_NETWORK, THREADS. Filtered ads are never billed.",
+      "editor": "stringList",
+      "sectionCaption": "Filters (applied before billing)"
+    },
+    "minDaysRunning": {
+      "title": "Minimum days running",
+      "type": "integer",
+      "description": "Keep only ads live at least this long. Long-running ads are the standard proxy for a winning creative — but see the README: it is a proxy, not a performance metric.",
+      "minimum": 1
+    },
+    "maxDaysRunning": {
+      "title": "Maximum days running",
+      "type": "integer",
+      "description": "Keep only ads live at most this long — useful for spotting fresh creative launches.",
+      "minimum": 1
+    },
+    "startedAfter": {
+      "title": "Started after",
+      "type": "string",
+      "description": "Keep ads that started on or after this date. Accepts YYYY-MM-DD or a relative form like \"30 days\".",
+      "editor": "textfield"
+    },
+    "startedBefore": {
+      "title": "Started before",
+      "type": "string",
+      "description": "Keep ads that started on or before this date. Accepts YYYY-MM-DD or \"6 months\".",
+      "editor": "textfield"
+    },
+    "excludeDisplayFormats": {
+      "title": "Exclude ad formats",
+      "type": "array",
+      "description": "Drop these display formats, e.g. DCO — the format most often returning thin or empty creatives.",
+      "editor": "stringList"
+    },
+    "requireMedia": {
+      "title": "Only ads with creatives",
+      "type": "boolean",
+      "description": "Drop ads with no image and no video. You are not billed for what is dropped.",
+      "default": false
+    },
+    "minVariantCount": {
+      "title": "Minimum variant count",
+      "type": "integer",
+      "description": "Keep only creatives Meta grouped into at least this many near-identical copies — the closest public signal that a creative is being scaled.",
+      "minimum": 2
+    },
+    "maxAdsPerPage": {
+      "title": "Max ads per advertiser",
+      "type": "integer",
+      "description": "Keep at most this many ads per Facebook Page. A keyword search usually returns the same few advertisers hundreds of times; set 1 to see one ad per advertiser. Applied before billing, so it cuts the cost too.",
+      "minimum": 1
+    },
+    "bodyContains": {
+      "title": "Ad copy contains",
+      "type": "array",
+      "description": "Keep ads whose copy contains any of these words. Searches every body, headline and card, not just the main text.",
+      "editor": "stringList"
+    },
+    "bodyExcludes": {
+      "title": "Ad copy excludes",
+      "type": "array",
+      "description": "Drop ads whose copy contains any of these words.",
+      "editor": "stringList"
+    },
+    "linkDomains": {
+      "title": "Destination domains",
+      "type": "array",
+      "description": "Keep only ads pointing at these domains, e.g. nike.com (subdomains included). Also the reliable way to tell two identically-named Pages apart.",
+      "editor": "stringList"
+    },
+    "resumeFromCheckpoint": {
+      "title": "Resume an interrupted run",
+      "type": "boolean",
+      "description": "If a previous run was cut short — a crash, a proxy failure, or an Apify platform migration — continue from the exact page it reached instead of starting over. Ads already collected are not fetched or billed again. Turn off to force a clean run from the top.",
+      "default": true,
+      "sectionCaption": "Reliability"
+    },
+    "webhookUrl": {
+      "title": "Webhook URL (push the changes)",
+      "type": "string",
+      "description": "HTTPS endpoint that receives a POST when the run finishes: the new, changed, scaling and stopped ads, plus a run-status block saying whether the run was complete enough to trust them. A failed webhook never fails the run.",
+      "editor": "textfield"
+    },
+    "proxyConfiguration": {
+      "title": "Proxy configuration",
+      "type": "object",
+      "description": "Strongly recommended. Meta blocks a single IP after roughly 47 requests (about 470 ads) and in our tests that block lasted hours. Residential proxies with automatic session rotation are what make large runs work.",
+      "editor": "proxy",
+      "default": {
+        "useApifyProxy": true,
+        "apifyProxyGroups": [
+          "RESIDENTIAL"
+        ]
+      },
+      "sectionCaption": "Advanced"
+    }
+  },
+  "required": []
+}

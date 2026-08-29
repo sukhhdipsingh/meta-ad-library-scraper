@@ -1,0 +1,18 @@
+{
+  "name": "meta-ad-library-scraper",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Scrape Facebook and Instagram ads from Meta's public Ad Library into one clean JSON schema, with built-in change tracking: a scheduled run tells you what is new or changed instead of re-billing the same ads.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node --test tests/*.test.js",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "apify": "^3.7.2",
+    "undici": "^7.29.0"
+  }
+}
