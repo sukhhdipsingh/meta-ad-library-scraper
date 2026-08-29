@@ -28,8 +28,11 @@ const ACTOR_ID = process.env.APIFY_ACTOR_ID ?? 'V9RNB29i6pJEAvyiR';
 const DRY = process.argv.includes('--dry-run');
 
 /** Directories whose whole contents ship, plus the loose files at the root.
- *  `node_modules` is deliberately absent: the Dockerfile runs `npm install`. */
-const DIRS = ['src', 'scripts', '.actor', 'tests'];
+ *  `node_modules` is deliberately absent: the Dockerfile runs `npm install`.
+ *  `tests` is absent too — its fixtures are 600 KB of recorded Ad Library
+ *  responses that the running actor has no use for, and Apify caps the source
+ *  payload. They stay in the repo, where they are run before a push. */
+const DIRS = ['src', 'scripts', '.actor'];
 const ROOT_FILES = ['package.json', 'package-lock.json', 'Dockerfile', 'README.md', 'CHANGELOG.md', '.dockerignore'];
 
 function walk(dir) {
