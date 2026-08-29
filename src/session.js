@@ -18,6 +18,7 @@ import { extractBundleUrls, extractChallengePath, extractDocId, extractLsd } fro
 import { AdLibraryError, CATEGORY } from './errors.js';
 import {
   AD_LIBRARY_URL,
+  DOC_ID_SCAN_BUDGET_BYTES,
   FALLBACK_DOC_ID,
   FORCED_LOCALE,
   NAVIGATION_HEADERS,
@@ -51,6 +52,10 @@ const BUNDLE_HEADERS = {
  * @param {number} [options.maxRotations] rotations allowed before giving up
  * @param {Function} [options.fetchImpl] injectable for tests
  * @param {object} [options.httpOptions] forwarded to `createHttpClient`
+ * @param {{load(): Promise<any>, save(id: string): Promise<any>}} [options.docIdStore]
+ *   where a resolved query id survives between runs. Injected rather than
+ *   imported so this file never depends on `apify` (CONTRACT.md §4).
+ * @param {number} [options.bundleScanBudgetBytes] cap on the bundle hunt
  */
 export function createSessionManager({
   proxyConfiguration = null,
@@ -59,6 +64,8 @@ export function createSessionManager({
   maxRotations = 10,
   fetchImpl = globalThis.fetch,
   httpOptions = {},
+  docIdStore = null,
+  bundleScanBudgetBytes = DOC_ID_SCAN_BUDGET_BYTES,
 } = {}) {
   let current = null;
   let rotations = 0;
@@ -71,7 +78,37 @@ export function createSessionManager({
    *  self-repair, because a pinned id can go stale like any other. */
   let docIdRefreshed = false;
 
+  /** The store is read at most once per run; a miss must never cost a retry. */
+  let storeRead = false;
+
   const nextSessionId = () => `meta_${Date.now().toString(36)}_${(created += 1)}`;
+
+  /**
+   * The id a previous run resolved. This is what turns the repair from
+   * per-run into permanent: Meta rotates, the first run that notices pays for
+   * the bundle scan, and every run after it starts on the right id for free.
+   */
+  async function rememberedDocId() {
+    if (storeRead || !docIdStore) return null;
+    storeRead = true;
+    try {
+      const value = await docIdStore.load();
+      if (typeof value === 'string' && /^\d+$/.test(value)) return value;
+    } catch (err) {
+      log.debug?.(`Could not read the remembered doc_id: ${err.message}`);
+    }
+    return null;
+  }
+
+  /** Never fatal: a run that cannot write the store still works, it just makes
+   *  the next run pay for the scan again. */
+  async function rememberDocId(id) {
+    try {
+      await docIdStore?.save(id);
+    } catch (err) {
+      log.debug?.(`Could not persist the doc_id: ${err.message}`);
+    }
+  }
 
   /**
    * Re-read the doc_id from Meta's live JavaScript, and say whether it moved.
@@ -102,13 +139,29 @@ export function createSessionManager({
       return false;
     }
 
-    // Candidates are ranked by how likely they are to hold the operation, so
-    // only a couple are ever downloaded.
-    for (const url of extractBundleUrls(html).slice(0, 4)) {
+    // Candidates are ranked by how likely they are to hold the operation, and
+    // the hunt stops on a byte budget rather than on a candidate count.
+    // Measured 2026-08-29: the operation sits in the 5th ranked bundle, 7.4 MB
+    // in — so the old "first 4 candidates" cap could not find it on any run,
+    // and the self-repair had been silently dead since it was written.
+    let spent = 0;
+    let scanned = 0;
+    for (const url of extractBundleUrls(html)) {
+      if (spent >= bundleScanBudgetBytes) {
+        log.warning?.(
+          `Stopped hunting for ${OPERATION_NAME} after ${scanned} bundle(s) / `
+          + `${(spent / 1e6).toFixed(1)} MB without finding it.`,
+        );
+        break;
+      }
       try {
-        const found = extractDocId(await session.http.getText(url, { headers: BUNDLE_HEADERS }), OPERATION_NAME);
+        const source = await session.http.getText(url, { headers: BUNDLE_HEADERS });
+        spent += source.length;
+        scanned += 1;
+        const found = extractDocId(source, OPERATION_NAME);
         if (!found) continue;
         cachedDocId = found;
+        await rememberDocId(found);
         if (found !== before) {
           log.warning?.(
             `[${CATEGORY.DOC_ID_STALE}] Meta rotated the Ad Library query id: `
@@ -175,8 +228,14 @@ export function createSessionManager({
 
     // The known-good id is used as-is. `refreshDocId` re-reads it from the live
     // bundle only if a request later suggests Meta rotated it, because that
-    // download is 6.3 MB of billed proxy traffic.
-    cachedDocId ??= FALLBACK_DOC_ID;
+    // download is megabytes of billed proxy traffic.
+    if (cachedDocId === null) {
+      const remembered = await rememberedDocId();
+      if (remembered && remembered !== FALLBACK_DOC_ID) {
+        log.info?.(`Using the query id a previous run resolved (${remembered}).`);
+      }
+      cachedDocId = remembered ?? FALLBACK_DOC_ID;
+    }
 
     log.info?.(`Session ${id} ready (lsd acquired, doc_id ${cachedDocId}${proxyUrl ? ', proxied' : ''})`);
     // `docId` is a getter so a mid-run refresh reaches sessions already handed out.

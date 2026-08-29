@@ -14,7 +14,7 @@ import { persistMediaFor } from './media.js';
 import { buildWebhookPayload, deliverWebhook, isDeliverableWebhookUrl } from './webhook.js';
 import { isBillable } from './state.js';
 import { AdLibraryError, CATEGORY, categorise } from './errors.js';
-import { CHARGE_EVENT, CHECKPOINT_STORE, MONITOR_STORE, RUN_STATUS_KEY, SUMMARY_KEY } from './constants.js';
+import { CHARGE_EVENT, CHECKPOINT_STORE, DOC_ID_KEY, DOC_ID_STORE, MONITOR_STORE, RUN_STATUS_KEY, SUMMARY_KEY } from './constants.js';
 
 const PUSH_CHUNK = 200;
 
@@ -49,7 +49,22 @@ try {
       + 'and the block outlasts 25 minutes. Runs above a few hundred ads need residential proxies.',
     );
   }
-  sessions = createSessionManager({ proxyConfiguration, log });
+  // Meta rotates the Ad Library's persisted-query id on every frontend
+  // redeploy. Resolving it costs a multi-megabyte bundle download, so the run
+  // that pays for it writes the answer here and every later run reads it for
+  // free. Without this the repair is per-run and the cost is paid forever.
+  const docIdStore = await Actor.openKeyValueStore(DOC_ID_STORE).catch((err) => {
+    log.debug(`No doc_id store this run: ${err.message}`);
+    return null;
+  });
+  sessions = createSessionManager({
+    proxyConfiguration,
+    log,
+    docIdStore: docIdStore && {
+      load: () => docIdStore.getValue(DOC_ID_KEY),
+      save: (id) => docIdStore.setValue(DOC_ID_KEY, id),
+    },
+  });
 
   const pricePerAdUsd = readEventPrice();
   let chargeWarned = false;

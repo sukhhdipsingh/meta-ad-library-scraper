@@ -87,6 +87,8 @@ const manager = (over = {}) => createSessionManager({
   log: over.log ?? makeLog(),
   docIdOverride: over.docIdOverride,
   maxRotations: over.maxRotations,
+  docIdStore: over.docIdStore,
+  bundleScanBudgetBytes: over.bundleScanBudgetBytes,
   // no proxy agent in tests, and no point sleeping between retries
   httpOptions: { retries: 0, ...over.httpOptions },
 });
@@ -528,6 +530,94 @@ describe('the doc_id re-read must look like a browser, or Meta answers 400', () 
     assert.equal(bundleGet.headers['sec-fetch-dest'], 'script',
       'a document-shaped request for a .js file is exactly what a bot filter looks for');
 
+    await sm.close();
+  });
+});
+
+/**
+ * The bundle hunt used to stop after four candidates. Measured 2026-08-29, the
+ * operation lives in the fifth — so the self-repair could never fire, and the
+ * actor would have needed a code change on the day Meta rotated the id. These
+ * tests pin the two properties that make it automatic instead: the hunt is
+ * bounded by bytes rather than by an arbitrary count, and the answer outlives
+ * the run that paid for it.
+ */
+describe('finding a rotated query id without a code change', () => {
+  /** Serves `count` decoy bundles before the one that carries the operation. */
+  function metaWithBundleAt(position, { bundleBytes = 1000 } = {}) {
+    const urls = Array.from({ length: 10 }, (_, i) => `https://static.xx.fbcdn.net/rsrc.php/v4/y${i}/decoy${i}.js`);
+    const shell = `<html>${urls.map((u) => `<script src="${u}"></script>`).join('')}` +
+      `<script>require("LSD",[],{"token":"AVlsd_1"},99);</script></html>`;
+    const filler = 'x'.repeat(bundleBytes);
+    const served = [];
+    const fetchImpl = async (url, init = {}) => {
+      const u = String(url);
+      if (u.includes('__rd_verify_')) return new Response('{"ok":1}', { status: 200 });
+      if (u.endsWith('.js')) {
+        served.push(u);
+        const isTarget = u === urls[position];
+        return new Response(
+          isTarget ? BUNDLE : `/* ${filler} */`,
+          { status: 200 },
+        );
+      }
+      return new Response(shell, { status: 200 });
+    };
+    return { fetchImpl, served, urls };
+  }
+
+  test('the fifth bundle is reached — the old four-candidate cap never got there', async () => {
+    const meta = metaWithBundleAt(4);
+    const sm = manager({ fetchImpl: meta.fetchImpl, docIdOverride: 'an-old-id' });
+    const session = await sm.acquire();
+
+    assert.equal(await sm.refreshDocId(session), true, 'the id was found and it had moved');
+    assert.equal(session.docId, '24922295957467452');
+    assert.equal(meta.served.length, 5, 'and it stopped as soon as it found it');
+    await sm.close();
+  });
+
+  test('the hunt stops on its byte budget, not on a candidate count', async () => {
+    // Every decoy is 1 KB, so a 3 KB budget buys three of them and no more.
+    const meta = metaWithBundleAt(9, { bundleBytes: 1000 });
+    const log = makeLog();
+    const sm = manager({ fetchImpl: meta.fetchImpl, log, docIdOverride: 'keep-me', bundleScanBudgetBytes: 3000 });
+    const session = await sm.acquire();
+
+    assert.equal(await sm.refreshDocId(session), false);
+    assert.equal(session.docId, 'keep-me', 'a hunt that ran out of budget must not invent an id');
+    assert.ok(meta.served.length <= 5, `stopped early, served ${meta.served.length}`);
+    assert.ok(log.warnings.some((w) => /Stopped hunting/.test(w)), log.warnings.join('|'));
+    await sm.close();
+  });
+
+  test('a resolved id is written once and reused by the next run for free', async () => {
+    const saved = [];
+    const store = { load: async () => null, save: async (id) => { saved.push(id); } };
+    const meta = metaWithBundleAt(0);
+    const sm = manager({ fetchImpl: meta.fetchImpl, docIdOverride: 'an-old-id', docIdStore: store });
+    const session = await sm.acquire();
+    await sm.refreshDocId(session);
+    assert.deepEqual(saved, ['24922295957467452'], 'the run that paid for the scan recorded the answer');
+    await sm.close();
+
+    // The next run: it starts on the remembered id and downloads nothing.
+    const next = makeFakeMeta();
+    const sm2 = manager({ fetchImpl: next.fetchImpl, docIdStore: { load: async () => '24922295957467452', save: async () => {} } });
+    const session2 = await sm2.acquire();
+    assert.equal(session2.docId, '24922295957467452');
+    assert.equal(next.calls.filter((c) => c.url.endsWith('.js')).length, 0, 'and paid nothing for it');
+    await sm2.close();
+  });
+
+  test('a store that throws is not allowed to break the run', async () => {
+    const meta = makeFakeMeta();
+    const sm = manager({
+      fetchImpl: meta.fetchImpl,
+      docIdStore: { load: async () => { throw new Error('store down'); }, save: async () => { throw new Error('store down'); } },
+    });
+    const session = await sm.acquire();
+    assert.equal(session.docId, FALLBACK_DOC_ID, 'it falls back rather than failing');
     await sm.close();
   });
 });

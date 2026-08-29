@@ -87,6 +87,17 @@ export const RUN_STATUS_KEY = 'RUN-STATUS';
 export const MONITOR_STORE = 'meta-ad-monitor';
 /** Pagination progress, so a killed run resumes instead of restarting. */
 export const CHECKPOINT_STORE = 'meta-ad-checkpoint';
+/** The query id a previous run resolved from the live bundle. Persisting it is
+ *  what makes the self-repair permanent: Meta's rotation is paid for once, by
+ *  whichever run hits it first, and never again by any later run. */
+export const DOC_ID_STORE = 'meta-ad-docid';
+export const DOC_ID_KEY = 'CURRENT';
+
+/** How many bundle bytes one run may spend hunting for a rotated query id.
+ *  Measured 2026-08-29: the operation lives in the 5th ranked candidate and is
+ *  reached after 7.4 MB, so the old cap of "the first 4 bundles" could never
+ *  find it. A byte budget is the honest limit — the count never was. */
+export const DOC_ID_SCAN_BUDGET_BYTES = 24_000_000;
 
 /** A run that paginates forever costs the buyer money for nothing. */
 export const DEFAULT_MAX_PAGES_PER_QUERY = 200;
